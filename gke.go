@@ -1,39 +1,5 @@
 package main
 
-/*
-GKE Test Client with improved GCP configuration following core backend patterns
-
-This application demonstrates GCP connection configuration patterns based on the
-core backend GCP plugin implementation. It supports multiple authentication methods:
-
-Environment Variables:
-  Required:
-    GKE_CLUSTER_NAME - Name of the GKE cluster to connect to
-    GOOGLE_CLOUD_PROJECT - GCP project ID
-
-  Optional:
-    GKE_ZONE         - GKE cluster zone/location (defaults to us-central1)
-    GOOGLE_APPLICATION_CREDENTIALS - Path to service account JSON file
-    GCP_CREDENTIALS_JSON           - Base64 encoded service account JSON
-
-Authentication Priority:
-  1. Service account JSON from GCP_CREDENTIALS_JSON (base64 encoded)
-  2. Service account JSON file from GOOGLE_APPLICATION_CREDENTIALS
-  3. Application Default Credentials (gcloud auth, service accounts, etc.)
-
-Examples:
-  # Using service account file
-  export GOOGLE_CLOUD_PROJECT=my-project
-  export GKE_CLUSTER_NAME=my-cluster
-  export GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
-  go run gke.go
-
-  # Using application default credentials
-  export GOOGLE_CLOUD_PROJECT=my-project
-  export GKE_CLUSTER_NAME=my-cluster
-  go run gke.go
-*/
-
 import (
 	"context"
 	"encoding/base64"
