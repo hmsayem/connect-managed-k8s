@@ -1,39 +1,5 @@
 package main
 
-/*
-EKS Test Client with improved AWS configuration following core backend patterns
-
-This application demonstrates AWS connection configuration patterns based on the
-core backend AWS plugin implementation. It supports multiple authentication methods:
-
-Environment Variables:
-  Required:
-    EKS_CLUSTER_NAME - Name of the EKS cluster to connect to
-
-  Optional:
-    AWS_REGION       - AWS region (defaults to us-east-1)
-    AWS_PROFILE      - AWS profile name for shared config
-    AWS_ACCESS_KEY_ID     - Static access key (not recommended for production)
-    AWS_SECRET_ACCESS_KEY - Static secret key (not recommended for production)
-    AWS_SESSION_TOKEN     - Optional session token
-
-Authentication Priority:
-  1. Static credentials (AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY)
-  2. AWS Profile (AWS_PROFILE)
-  3. Default credential chain (environment variables, IAM roles, etc.)
-
-Examples:
-  # Using AWS Profile
-  export EKS_CLUSTER_NAME=my-cluster
-  export AWS_PROFILE=my-profile
-  go run main.go
-
-  # Using default credentials (IAM role, environment variables)
-  export EKS_CLUSTER_NAME=my-cluster
-  export AWS_REGION=us-west-2
-  go run main.go
-*/
-
 import (
 	"context"
 	"encoding/base64"
@@ -337,7 +303,7 @@ func (c *EKSClient) GetRegion() string {
 }
 
 // RunAWSTest runs the AWS EKS test client
-func RunAWSTest() error {
+func RunEKSTest() error {
 	err := godotenv.Load()
 	if err != nil {
 		log.Printf("Warning: .env file not found, using environment variables")

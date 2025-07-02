@@ -312,7 +312,7 @@ func (c *GKEClient) Close() error {
 }
 
 // RunGCPTest runs the GKE test client
-func RunGCPTest() error {
+func RunGKETest() error {
 	err := godotenv.Load()
 	if err != nil {
 		log.Printf("Warning: .env file not found, using environment variables")
