@@ -12,7 +12,7 @@ func main() {
 		log.Printf("Warning: .env file not found, using environment variables")
 	}
 
-	if err := RunGCPTest(); err != nil {
-		log.Fatalf("AWS test failed: %v", err)
+	if err := RunAKSTest(); err != nil {
+		log.Fatalf("test failed: %v", err)
 	}
 }

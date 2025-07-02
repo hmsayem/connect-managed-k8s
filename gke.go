@@ -114,7 +114,6 @@ func (m *GCPClientManager) validateConfig() error {
 
 // validateCredentials validates GCP credentials by making a test API call
 func (m *GCPClientManager) validateCredentials(ctx context.Context) error {
-	return nil
 	// Test credentials by trying to list storage buckets (lightweight API call)
 	it := m.storageClient.Buckets(ctx, m.config.ProjectID)
 	if _, err := it.Next(); err != nil && err != iterator.Done {
