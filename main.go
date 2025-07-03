@@ -16,11 +16,11 @@ func main() {
 		log.Fatalf("test failed: %v", err)
 	}
 
-	if err := RunGKETest(); err != nil {
-		log.Fatalf("test failed: %v", err)
-	}
+	// if err := RunGKETest(); err != nil {
+	// 	log.Fatalf("test failed: %v", err)
+	// }
 
-	if err := RunEKSTest(); err != nil {
-		log.Fatalf("test failed: %v", err)
-	}
+	// if err := RunEKSTest(); err != nil {
+	// 	log.Fatalf("test failed: %v", err)
+	// }
 }

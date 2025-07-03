@@ -8,10 +8,12 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v4"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -93,6 +95,92 @@ func createAzureCredential() (azcore.TokenCredential, error) {
 	return cred, nil
 }
 
+// initKubernetesClientWithAzureAD initializes the Kubernetes client using Azure AD authentication
+func (c *AKSClient) initKubernetesClientWithAzureAD(cluster armcontainerservice.ManagedClustersClientGetResponse) error {
+	if cluster.Properties == nil || cluster.Properties.Fqdn == nil {
+		return fmt.Errorf("cluster FQDN is not available")
+	}
+
+	// Get Azure AD token for Kubernetes API
+	token, err := c.getAzureADToken()
+	if err != nil {
+		return fmt.Errorf("failed to get Azure AD token: %w", err)
+	}
+
+	// Get CA certificate data from cluster
+	caCertData, err := c.getClusterCACertificate()
+	if err != nil {
+		return fmt.Errorf("failed to get CA certificate: %w", err)
+	}
+
+	// Create Kubernetes client configuration with Azure AD token and CA certificate
+	kubeConfig := &rest.Config{
+		Host:        fmt.Sprintf("https://%s", *cluster.Properties.Fqdn),
+		BearerToken: token,
+		TLSClientConfig: rest.TLSClientConfig{
+			CAData:   caCertData,
+			Insecure: false, // Use secure TLS verification with CA certificate
+		},
+	}
+
+	// Create Kubernetes clientset
+	clientset, err := kubernetes.NewForConfig(kubeConfig)
+	if err != nil {
+		return fmt.Errorf("failed to create Kubernetes clientset: %w", err)
+	}
+
+	c.k8sClient = clientset
+	fmt.Println("Successfully connected using Azure AD token authentication (secure)")
+	return nil
+}
+
+// getAzureADToken gets an Azure AD token for Kubernetes API access
+func (c *AKSClient) getAzureADToken() (string, error) {
+	// Use the same credential that we used for the AKS client
+	ctx := context.Background()
+
+	// Get token for Kubernetes API (using the standard AKS server application scope)
+	token, err := c.credential.GetToken(ctx, policy.TokenRequestOptions{
+		Scopes: []string{"6dae42f8-4368-4678-94ff-3960e28e3630/.default"}, // Azure Kubernetes Service scope
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to get Azure AD token: %w", err)
+	}
+
+	return token.Token, nil
+}
+
+// getClusterCACertificate extracts the CA certificate from the AKS cluster
+func (c *AKSClient) getClusterCACertificate() ([]byte, error) {
+	// If admin credentials fail, try user credentials
+	userCredResult, err := c.aksClient.ListClusterUserCredentials(context.Background(), c.resourceGroup, c.clusterName, nil)
+	if err == nil && len(userCredResult.Kubeconfigs) > 0 && userCredResult.Kubeconfigs[0].Value != nil {
+		caCert, err := c.extractCACertFromKubeconfig(userCredResult.Kubeconfigs[0].Value)
+		if err == nil {
+			return caCert, nil
+		}
+	}
+	return nil, fmt.Errorf("no CA certificate found in cluster credentials")
+}
+
+// extractCACertFromKubeconfig extracts CA certificate data from kubeconfig
+func (c *AKSClient) extractCACertFromKubeconfig(kubeconfigData []byte) ([]byte, error) {
+	// Extract CA data from kubeconfig using clientcmd
+	config, err := clientcmd.Load(kubeconfigData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse kubeconfig: %w", err)
+	}
+
+	// Find the first cluster and extract its CA data
+	for _, cluster := range config.Clusters {
+		if len(cluster.CertificateAuthorityData) > 0 {
+			return cluster.CertificateAuthorityData, nil
+		}
+	}
+
+	return nil, fmt.Errorf("no CA certificate found in kubeconfig")
+}
+
 // initKubernetesClient initializes the Kubernetes client using AKS cluster info
 func (c *AKSClient) initKubernetesClient() error {
 	ctx := context.Background()
@@ -116,36 +204,9 @@ func (c *AKSClient) initKubernetesClient() error {
 		return fmt.Errorf("cluster %s is not running, current status: %s", c.clusterName, *cluster.Properties.PowerState.Code)
 	}
 
-	// Get cluster admin credentials
-	credResult, err := c.aksClient.ListClusterAdminCredentials(ctx, c.resourceGroup, c.clusterName, nil)
-	if err != nil {
-		return fmt.Errorf("failed to get cluster admin credentials: %w", err)
-	}
+	fmt.Println("Using Azure AD token-based authentication...")
+	return c.initKubernetesClientWithAzureAD(cluster)
 
-	if len(credResult.Kubeconfigs) == 0 {
-		return fmt.Errorf("no kubeconfig found for cluster")
-	}
-
-	// Decode the kubeconfig
-	kubeconfigData := credResult.Kubeconfigs[0].Value
-	if kubeconfigData == nil {
-		return fmt.Errorf("kubeconfig data is nil")
-	}
-
-	// Create Kubernetes client configuration from kubeconfig
-	kubeConfig, err := clientcmd.RESTConfigFromKubeConfig(kubeconfigData)
-	if err != nil {
-		return fmt.Errorf("failed to create REST config from kubeconfig: %w", err)
-	}
-
-	// Create Kubernetes clientset
-	clientset, err := kubernetes.NewForConfig(kubeConfig)
-	if err != nil {
-		return fmt.Errorf("failed to create Kubernetes clientset: %w", err)
-	}
-
-	c.k8sClient = clientset
-	return nil
 }
 
 // GetClusterInfo returns basic information about the AKS cluster
